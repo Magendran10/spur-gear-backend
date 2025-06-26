@@ -11,17 +11,24 @@ def get_history(start_date: str = Query(...), end_date: str = Query(...)):
         start = datetime.fromisoformat(start_date)
         end = datetime.fromisoformat(end_date)
 
-        def parse_date(s):
+        def parse_date(s: str):
             try:
-                return datetime.fromisoformat(s)
-            except ValueError:
-                # Remove timezone if any
-                return datetime.fromisoformat(s.split("+")[0])
+                return datetime.fromisoformat(s.replace("Z", "+00:00"))
+            except Exception:
+                return None
 
-        result = [
-            gear for gear in db
-            if "inspection_date" in gear and start <= parse_date(gear["inspection_date"]) <= end
-        ]
+        # Fetch all data and filter in Python
+        all_gears = list(db.gears.find())
+        result = []
+        for gear in all_gears:
+            if "inspection_date" in gear:
+                inspection_dt = parse_date(gear["inspection_date"])
+                if inspection_dt and start <= inspection_dt <= end:
+                    gear["_id"] = str(gear["_id"])
+                    gear["inspection_date"] = inspection_dt.isoformat()
+                    result.append(gear)
+
         return result
+
     except Exception as e:
         return {"error": str(e)}
